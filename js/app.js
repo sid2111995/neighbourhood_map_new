@@ -1,9 +1,10 @@
 var map;
+var k;
 var service;
 var infowindow;
 var markers = [];
 var myRes = [];
-
+var main_res = [];
 function initMap(){
      map = new google.maps.Map(document.getElementById('map'), {
         center: {
@@ -14,41 +15,58 @@ function initMap(){
 
         
     });
-      infowindow = new google.maps.InfoWindow();
-    //  var request = {
-    //         location: {
-    //              lat: 31.6340,
-    //              lng: 74.8723
-    //         },
-    //         radius: '500',
-    //         types: ['restaurant']
-    // };
-    //     service = new google.maps.places.PlacesService(map);
-    //     service.nearbySearch(request, callback);
+      infowindow = new google.maps.InfoWindow({maxWidth: 100});
+
     fetchZomato();
-    //showMarkers();
-    //console.log(markers);
+    
 }
 
-function populateInfoWindow( marker , infowindow, res )
+function callErrorMethod() {
+    
+    ViewModel.error( ' cant  Load the map' );
+    ViewModel.isError( true );
+}
+
+
+
+function populateInfoWindow( marker , infowindow)
 {
-    var content = res;
-    infowindow.setContent( content );
-    infowindow.open( map , marker );
-    // infowindow.addListener('closeclick' , function(){
+    var content = marker.sres;
 
-    // });
+    if( infowindow.marker !== marker && infowindow.marker !== undefined )
+    {
+        infowindow.marker.setAnimation( null );
+    }    
+    
+    infowindow.marker = marker;
+
+    infowindow.marker.setAnimation( google.maps.Animation.BOUNCE );
+    
+    infowindow.setContent( content );
+    
+    infowindow.open( map , marker );
+
+    infowindow.addListener('closeclick' , function() {
+        infowindow.marker.setAnimation( null );
+    });
 }
-function showMarkers() {
-    console.log("Kidaaa");
-    var bounds = new google.maps.LatLngBounds();
+
+
+function hideMarkers() {
+
     for (var i = 0; i < markers.length; i++) {
-        markers[i].setMap(map);
-        console.log(markers[i].position);
-        bounds.extend(markers[i].position);
+        markers[i].setVisible(false);
     }
-    map.fitBounds(bounds);
 }
+
+
+function showMarkers() { 
+    for (var i = 0; i < markers.length; i++) {
+        markers[i].setVisible(true);
+    }
+    
+}
+k = 0;
 function fetchZomato() {
     $.ajax({
         url : 'https://developers.zomato.com/api/v2.1/geocode',
@@ -61,11 +79,12 @@ function fetchZomato() {
     }).done(function(response){
         var res = '';
         var resList = response.nearby_restaurants;
+        var bounds = new google.maps.LatLngBounds();
         for (var i = 0; i < resList.length; i++) {
             //res = '<h1>'+response.location.title+'</h1>';
             res = '<img src = "'+ resList[i].restaurant.featured_image + '" class = "res-image">';
             res += '<h2>' + resList[i].restaurant.name + '</h2>';
-        
+        main_res[i] = res;
         var myLatlng = new google.maps.LatLng(parseFloat(resList[i].restaurant.location.latitude),parseFloat(resList[i].restaurant.location.longitude));
         if(myLatlng.lat()==0)continue;
         
@@ -73,43 +92,71 @@ function fetchZomato() {
             position: myLatlng,
             title: resList[i].restaurant.name,
             animation: google.maps.Animation.DROP,
+            sres: main_res[i],
+            map:map
             
         });
+        bounds.extend(marker.position);
+        
         marker.addListener('click', function(){
-            populateInfoWindow(this, infowindow, res);
+            populateInfoWindow(this, infowindow);
         });
         markers.push(marker);
     }
+    map.fitBounds(bounds);
+    ViewModel.init();
        
     }).fail(function(response,status, error){
-        console.log("Can't Fetch");
+        ViewModel.isError(true);
+        ViewModel.error('Cant fetch Zomato"s restaurant List');
     });
 }
 
-function createMarker( place ){
-    var marker = new google.maps.Marker({
-          position: {
-           lat: place.geometry.location.lat(),
-           lng: place.geometry.location.lng()
-          },
-          map: map,
-          title: place.name
-        });
-    marker.addListener('click', function(){
-        populateInfoWindow( this , infowindow );
-    });
+function highlightMarker( markerTitle ) {
+
+    for( var i in markers )
+    {
+        if( markers[ i ].title == markerTitle )
+        {
+            populateInfoWindow( markers[ i ] , infowindow );
+            return;
+        }    
+    }    
 }
 
-function callback(results, status) {
-  if (status == google.maps.places.PlacesServiceStatus.OK) {
-    for (var i = 0; i < results.length; i++) {
-      var place = results[i];
-      createMarker(results[i]);
-    }
-  }
-}
+
 
 var ViewModel = {
+    
+    restaurantList : ko.observableArray(),
+    searchText : ko.observable(''),
+    isError : ko.observable( false ),
+    error : ko.observable(''),
+
+    init : function() {
+        for( var marker in markers )
+        {
+            //console.log( markers[marker] );
+            ViewModel.restaurantList.push( markers[marker].title );
+        }    
+    },
+
+    findRestaurant : function( text ){
+        ViewModel.restaurantList.removeAll();
+        for( var i in markers )
+        {
+            if( markers[ i ].title.toLowerCase().indexOf( text.toLowerCase() ) > -1 )
+            {
+                ViewModel.restaurantList.push( markers[ i ].title );
+                markers[ i ].setVisible( true );
+            }
+            else
+            {
+                markers[ i ].setVisible( false );    
+            }    
+        }   
+    },
 
 }
 ko.applyBindings(ViewModel);
+ViewModel.searchText.subscribe( ViewModel.findRestaurant );
