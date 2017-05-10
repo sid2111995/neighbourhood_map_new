@@ -1,10 +1,10 @@
-var map;
+var map; //Where my main map is stored
 var k;
 var service;
-var infowindow;
-var markers = [];
+var infowindow; //Window that pop up when marker is clicked
+var markers = []; // where all my markers are stored
 var myRes = [];
-var main_res = [];
+var main_res = []; // for maintaining list of info
 function initMap(){
      map = new google.maps.Map(document.getElementById('map'), {
         center: {
@@ -20,7 +20,7 @@ function initMap(){
     fetchZomato();
     
 }
-
+// error handling
 function callErrorMethod() {
     
     ViewModel.error( ' cant  Load the map' );
@@ -28,7 +28,7 @@ function callErrorMethod() {
 }
 
 
-
+// put content in info window
 function populateInfoWindow( marker , infowindow)
 {
     var content = marker.sres;
@@ -51,7 +51,7 @@ function populateInfoWindow( marker , infowindow)
     });
 }
 
-
+// functions to show or hide all the markers
 function hideMarkers() {
 
     for (var i = 0; i < markers.length; i++) {
@@ -125,7 +125,7 @@ function highlightMarker( markerTitle ) {
 }
 
 
-
+// View model to apply knockout js
 var ViewModel = {
     
     restaurantList : ko.observableArray(),
